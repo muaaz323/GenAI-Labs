@@ -1,0 +1,13 @@
+Task,Description,Estimated Hours,Actual Hours
+Project Setup,Initial repository setup environment configuration dependency installation,2,
+Data Exploration,Analyzing the product and order datasets understanding structure and contents,3,
+Chat Service,Implementing the main chatbot service that routes user queries,6,
+Product Search Service,Building the service to query and retrieve data from the Product Dataset,8,
+Order Lookup Service,Implementing the service to interface with the mock API for order data,6,
+RAG Implementation,Setting up vector database embedding generation and retrieval mechanism,10,
+Microservices Integration,Connecting all services with proper API interfaces and communication,5,
+Testing & Debugging,Creating test cases sample questions and debugging the system,8,
+Documentation,Writing API documentation usage instructions and project README,4,
+Deployment,Deploying microservices to a public platform,3,
+Bonus Features,Simple UI for testing additional improvements,5,
+Total,,60,
