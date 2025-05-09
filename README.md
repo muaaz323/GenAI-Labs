@@ -24,7 +24,7 @@ The system consists of three main microservices:
 ### Local Development
 1. Clone the repository
 2. Set your OpenAI API key: `export OPENAI_API_KEY=your-api-key`
-3. Make a python virtual environment and run all the services
+3. Make a python virtual environment and run all the services (chat_api, mock_api, order_api, product_api)
 4. Access the chat service at http://localhost:8000/docs
 
 ### API Testing
