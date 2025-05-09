@@ -121,13 +121,42 @@ async def chat(request: ChatRequest):
         conversation["history"].append({"role": "user", "content": message, "timestamp": datetime.now().isoformat()})
         
         # Check if we're waiting for customer ID
+        # Check if we're waiting for customer ID
         if conversation["waiting_for_customer_id"]:
             logger.info(f"Session {session_id}: Waiting for customer ID, received: '{message}'")
             
-            # Check if the message looks like a customer ID (numeric)
+            # Extract customer ID from message
+            customer_id = None
+            
+            # Case 1: Message is just a number
             if message.strip().isdigit():
                 customer_id = message.strip()
-                logger.info(f"Session {session_id}: Customer ID provided: {customer_id}")
+            # Case 2: Natural language pattern (e.g., "My Customer ID is 37077.")
+            else:
+                # Look for common patterns where numbers appear after ID-related words
+                import re
+                patterns = [
+                    r"customer\s*id\s*(?:is|:|=)?\s*(\d+)",  # "customer id is 37077" or "customer id: 37077"
+                    r"id\s*(?:is|:|=)?\s*(\d+)",            # "id is 37077" or "id: 37077"
+                    r"number\s*(?:is|:|=)?\s*(\d+)",        # "number is 37077"
+                    r"(\d+)\s*(?:is my|as my)?\s*(?:customer)?\s*id"  # "37077 is my customer id"
+                ]
+                
+                for pattern in patterns:
+                    match = re.search(pattern, message, re.IGNORECASE)
+                    if match:
+                        customer_id = match.group(1)
+                        break
+                        
+                # As a fallback, just find any number in the message
+                if not customer_id:
+                    numbers = re.findall(r'\d+', message)
+                    if numbers:
+                        # Use the first number found as customer ID
+                        customer_id = numbers[0]
+            
+            if customer_id:
+                logger.info(f"Session {session_id}: Customer ID extracted: {customer_id}")
                 conversation["customer_id"] = customer_id
                 conversation["waiting_for_customer_id"] = False
                 
@@ -146,13 +175,13 @@ async def chat(request: ChatRequest):
                         # Default to general order for any other query type
                         return await process_general_order(customer_id, session_id, conversation)
                 else:
-                    # Fallback: If no query type is set but we were waiting for customer ID
+                    # Fallback if no query type is set
                     logger.info(f"Session {session_id}: No pending query type found, defaulting to general order lookup")
                     return await process_general_order(customer_id, session_id, conversation)
             else:
                 # The user didn't provide a valid customer ID
-                logger.warning(f"Session {session_id}: Invalid customer ID format provided: '{message}'")
-                response = "I need a numeric Customer ID to look up your order information. Please provide just the number."
+                logger.warning(f"Session {session_id}: No customer ID found in message: '{message}'")
+                response = "I couldn't find a valid Customer ID in your message. Please provide just a number, or say something like 'My customer ID is 12345'."
                 conversation["history"].append({"role": "assistant", "content": response, "timestamp": datetime.now().isoformat()})
                 return ChatResponse(response=response, session_id=session_id)
         
