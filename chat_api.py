@@ -132,24 +132,23 @@ async def chat(request: ChatRequest):
                 conversation["waiting_for_customer_id"] = False
                 
                 # Process the pending query with the customer ID
-                if conversation["pending_query"]:
+                if conversation["last_query_type"]:
                     query_type = conversation["last_query_type"]
-                    pending_query = conversation["pending_query"]
-                    conversation["pending_query"] = None
-                    
                     logger.info(f"Session {session_id}: Processing pending query of type: {query_type}")
-                    logger.debug(f"Session {session_id}: Pending query details: {json.dumps(pending_query, indent=2)}")
                     
                     if query_type == "recent_order":
                         return await process_recent_order(customer_id, session_id, conversation)
                     elif query_type == "order_by_category":
-                        category = pending_query.get("category")
+                        category = conversation.get("pending_query", {}).get("category")
                         logger.info(f"Session {session_id}: Processing category order with category: {category}")
                         return await process_category_order(customer_id, category, session_id, conversation)
-                    elif query_type == "order_status":
-                        return await process_general_order(customer_id, session_id, conversation)
                     else:
+                        # Default to general order for any other query type
                         return await process_general_order(customer_id, session_id, conversation)
+                else:
+                    # Fallback: If no query type is set but we were waiting for customer ID
+                    logger.info(f"Session {session_id}: No pending query type found, defaulting to general order lookup")
+                    return await process_general_order(customer_id, session_id, conversation)
             else:
                 # The user didn't provide a valid customer ID
                 logger.warning(f"Session {session_id}: Invalid customer ID format provided: '{message}'")
@@ -167,15 +166,18 @@ async def chat(request: ChatRequest):
         logger.info(f"Session {session_id}: Query classification - order query: {is_order_query}, personal query: {is_personal_query}")
         
         if is_order_query:
-            # This is likely an order query
+    # This is likely an order query
             if is_personal_query:
                 # Personal order query requires customer ID
                 if not conversation["customer_id"]:
                     logger.info(f"Session {session_id}: Personal order query detected but no customer ID available")
                     conversation["waiting_for_customer_id"] = True
-                    conversation["last_query_type"] = "general_order"
                     
-                    # Store the current query to process after getting customer ID
+                    # FIXED: Always set a default query type even if we don't detect specifics
+                    conversation["last_query_type"] = "general_order"
+                    conversation["pending_query"] = {"original_message": message}
+                    
+                    # Check for more specific query types
                     if "recent" in message or "last" in message:
                         logger.info(f"Session {session_id}: Identified as recent order query")
                         conversation["last_query_type"] = "recent_order"
@@ -191,7 +193,7 @@ async def chat(request: ChatRequest):
                             
                         logger.info(f"Session {session_id}: Identified as category-specific order query for category: {category}")
                         conversation["last_query_type"] = "order_by_category"
-                        conversation["pending_query"] = {"category": category}
+                        conversation["pending_query"] = {"category": category, "original_message": message}
                     
                     response = "Could you please provide your Customer ID?"
                     logger.info(f"Session {session_id}: Requesting customer ID")
